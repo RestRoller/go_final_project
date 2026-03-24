@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 type Task struct {
@@ -108,22 +109,28 @@ func Tasks(limit int, search string) ([]*Task, error) {
 	var query string
 	var args []interface{}
 
-	if search != "" {
-		// Проверяем, является ли search датой в формате DD.MM.YYYY
-		if len(search) == 10 && search[2] == '.' && search[5] == '.' {
-			// Преобразуем DD.MM.YYYY в YYYYMMDD
-			date := search[6:10] + search[3:5] + search[0:2]
+	switch {
+	case search == "":
+		query = `SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT ?`
+		args = []interface{}{limit}
+		
+	case isDate(search):
+		// Если search похож на дату, пробуем распарсить
+		t, err := time.Parse("02.01.2006", search)
+		if err == nil {
+			date := t.Format("20060102")
 			query = `SELECT id, date, title, comment, repeat FROM scheduler WHERE date = ? ORDER BY date LIMIT ?`
 			args = []interface{}{date, limit}
 		} else {
-			// Поиск по заголовку или комментарию
 			searchPattern := "%" + search + "%"
 			query = `SELECT id, date, title, comment, repeat FROM scheduler WHERE title LIKE ? OR comment LIKE ? ORDER BY date LIMIT ?`
 			args = []interface{}{searchPattern, searchPattern, limit}
 		}
-	} else {
-		query = `SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT ?`
-		args = []interface{}{limit}
+		
+	default:
+		searchPattern := "%" + search + "%"
+		query = `SELECT id, date, title, comment, repeat FROM scheduler WHERE title LIKE ? OR comment LIKE ? ORDER BY date LIMIT ?`
+		args = []interface{}{searchPattern, searchPattern, limit}
 	}
 
 	rows, err := DB.Query(query, args...)
@@ -142,4 +149,16 @@ func Tasks(limit int, search string) ([]*Task, error) {
 		tasks = append(tasks, &task)
 	}
 	return tasks, nil
+}
+
+// isDate проверяет, похожа ли строка на дату в формате DD.MM.YYYY
+func isDate(s string) bool {
+	if len(s) != 10 {
+		return false
+	}
+	if s[2] != '.' || s[5] != '.' {
+		return false
+	}
+	_, err := time.Parse("02.01.2006", s)
+	return err == nil
 }
