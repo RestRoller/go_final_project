@@ -20,10 +20,10 @@ func Init(dbFile string) error {
 	}
 
 	if err = DB.Ping(); err != nil {
+		DB.Close()
 		return err
 	}
 
-	// Создаём таблицу если её нет
 	schema := `
 	CREATE TABLE IF NOT EXISTS scheduler (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,6 +36,7 @@ func Init(dbFile string) error {
 	`
 	_, err = DB.Exec(schema)
 	if err != nil {
+		DB.Close()
 		return err
 	}
 
