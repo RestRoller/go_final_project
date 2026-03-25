@@ -113,9 +113,8 @@ func Tasks(limit int, search string) ([]*Task, error) {
 	case search == "":
 		query = `SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT ?`
 		args = []interface{}{limit}
-		
+
 	case isDate(search):
-		// Если search похож на дату, пробуем распарсить
 		t, err := time.Parse("02.01.2006", search)
 		if err == nil {
 			date := t.Format("20060102")
@@ -126,7 +125,7 @@ func Tasks(limit int, search string) ([]*Task, error) {
 			query = `SELECT id, date, title, comment, repeat FROM scheduler WHERE title LIKE ? OR comment LIKE ? ORDER BY date LIMIT ?`
 			args = []interface{}{searchPattern, searchPattern, limit}
 		}
-		
+
 	default:
 		searchPattern := "%" + search + "%"
 		query = `SELECT id, date, title, comment, repeat FROM scheduler WHERE title LIKE ? OR comment LIKE ? ORDER BY date LIMIT ?`
@@ -151,7 +150,6 @@ func Tasks(limit int, search string) ([]*Task, error) {
 	return tasks, nil
 }
 
-// isDate проверяет, похожа ли строка на дату в формате DD.MM.YYYY
 func isDate(s string) bool {
 	if len(s) != 10 {
 		return false
