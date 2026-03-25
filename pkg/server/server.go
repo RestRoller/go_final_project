@@ -20,16 +20,13 @@ func Run() error {
 		dbFile = "scheduler.db"
 	}
 
-	// Инициализируем БД (создаст таблицу если нет)
 	if err := db.Init(dbFile); err != nil {
 		return fmt.Errorf("ошибка инициализации БД: %w", err)
 	}
 	defer db.Close()
 
-	// Регистрируем API обработчики
 	api.Init()
 
-	// Раздаём статические файлы
 	webDir := "./web"
 	http.Handle("/", http.FileServer(http.Dir(webDir)))
 
