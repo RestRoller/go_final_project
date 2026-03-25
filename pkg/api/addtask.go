@@ -30,29 +30,46 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
+	today := now.Format(dateFormat)
 
+	// Если дата не указана, ставим сегодня
 	if req.Date == "" {
-		req.Date = now.Format(dateFormat)
+		req.Date = today
 	}
 
+	// Проверяем корректность даты
 	t, err := time.Parse(dateFormat, req.Date)
 	if err != nil {
 		WriteError(w, "Неверный формат даты", http.StatusBadRequest)
 		return
 	}
 
+	// Получаем сегодняшнюю дату для сравнения (без времени)
+	todayTime, _ := time.Parse(dateFormat, today)
+
+	// Если есть правило повторения
 	if req.Repeat != "" {
-		nextDate, err := NextDate(now, req.Date, req.Repeat)
+		// Проверяем правило
+		_, err := NextDate(now, req.Date, req.Repeat)
 		if err != nil {
 			WriteError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if t.Before(now) {
+
+		// Сравниваем только даты (без времени)
+		if t.Before(todayTime) {
+			nextDate, err := NextDate(now, req.Date, req.Repeat)
+			if err != nil {
+				WriteError(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 			req.Date = nextDate
 		}
+		// Если дата равна сегодня или в будущем - оставляем как есть
 	} else {
-		if t.Before(now) {
-			req.Date = now.Format(dateFormat)
+		// Если нет правила повторения и дата в прошлом, ставим сегодня
+		if t.Before(todayTime) {
+			req.Date = today
 		}
 	}
 
@@ -106,9 +123,10 @@ func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
+	today := now.Format(dateFormat)
 
 	if req.Date == "" {
-		req.Date = now.Format(dateFormat)
+		req.Date = today
 	}
 
 	t, err := time.Parse(dateFormat, req.Date)
@@ -117,18 +135,25 @@ func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	todayTime, _ := time.Parse(dateFormat, today)
+
 	if req.Repeat != "" {
-		nextDate, err := NextDate(now, req.Date, req.Repeat)
+		_, err := NextDate(now, req.Date, req.Repeat)
 		if err != nil {
 			WriteError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if t.Before(now) {
+		if t.Before(todayTime) {
+			nextDate, err := NextDate(now, req.Date, req.Repeat)
+			if err != nil {
+				WriteError(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 			req.Date = nextDate
 		}
 	} else {
-		if t.Before(now) {
-			req.Date = now.Format(dateFormat)
+		if t.Before(todayTime) {
+			req.Date = today
 		}
 	}
 
