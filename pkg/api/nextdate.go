@@ -27,16 +27,15 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 
 	switch parts[0] {
 	case "y":
-		// Ежегодно
+		nextDate := date
 		for {
-			date = date.AddDate(1, 0, 0)
-			if date.After(now) {
-				return date.Format(dateFormat), nil
+			nextDate = nextDate.AddDate(1, 0, 0)
+			if nextDate.After(now) {
+				return nextDate.Format(dateFormat), nil
 			}
 		}
 
 	case "d":
-		// Через N дней
 		if len(parts) != 2 {
 			return "", fmt.Errorf("неверный формат правила d")
 		}
@@ -44,15 +43,19 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 		if err != nil || interval < 1 || interval > 400 {
 			return "", fmt.Errorf("неверный интервал для d: должен быть от 1 до 400")
 		}
+
+		// Начинаем с начальной даты
+		nextDate := date
+
+		// Добавляем интервал пока дата не станет больше now
 		for {
-			date = date.AddDate(0, 0, interval)
-			if date.After(now) {
-				return date.Format(dateFormat), nil
+			nextDate = nextDate.AddDate(0, 0, interval)
+			if nextDate.After(now) {
+				return nextDate.Format(dateFormat), nil
 			}
 		}
 
 	case "w":
-		// По дням недели
 		if len(parts) != 2 {
 			return "", fmt.Errorf("неверный формат правила w")
 		}
@@ -61,33 +64,30 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 		for _, d := range weekdays {
 			num, err := strconv.Atoi(d)
 			if err != nil || num < 1 || num > 7 {
-				return "", fmt.Errorf("неверный день недели: %s (должен быть от 1 до 7)", d)
+				return "", fmt.Errorf("неверный день недели: %s", d)
 			}
 			allowedDays[num] = true
 		}
 
-		// Начинаем со следующего дня
-		date = date.AddDate(0, 0, 1)
+		nextDate := date
 		for {
-			if date.After(now) {
-				weekday := int(date.Weekday())
+			nextDate = nextDate.AddDate(0, 0, 1)
+			if nextDate.After(now) {
+				weekday := int(nextDate.Weekday())
 				if weekday == 0 {
-					weekday = 7 // воскресенье
+					weekday = 7
 				}
 				if allowedDays[weekday] {
-					return date.Format(dateFormat), nil
+					return nextDate.Format(dateFormat), nil
 				}
 			}
-			date = date.AddDate(0, 0, 1)
 		}
 
 	case "m":
-		// По дням месяца
 		if len(parts) < 2 {
 			return "", fmt.Errorf("неверный формат правила m")
 		}
 
-		// Парсим дни
 		daysPart := parts[1]
 		days := strings.Split(daysPart, ",")
 		allowedDays := make(map[int]bool)
@@ -97,12 +97,11 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 				return "", fmt.Errorf("неверный день месяца: %s", d)
 			}
 			if num < -31 || num == 0 || num > 31 {
-				return "", fmt.Errorf("неверный день месяца: %d (должен быть от -31 до -1 или от 1 до 31)", num)
+				return "", fmt.Errorf("неверный день месяца: %d", num)
 			}
 			allowedDays[num] = true
 		}
 
-		// Парсим месяцы (опционально)
 		allowedMonths := make(map[int]bool)
 		if len(parts) > 2 {
 			monthsPart := parts[2]
@@ -110,39 +109,35 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 			for _, m := range months {
 				num, err := strconv.Atoi(m)
 				if err != nil || num < 1 || num > 12 {
-					return "", fmt.Errorf("неверный месяц: %s (должен быть от 1 до 12)", m)
+					return "", fmt.Errorf("неверный месяц: %s", m)
 				}
 				allowedMonths[num] = true
 			}
 		}
 
-		// Ищем следующую дату
-		date = date.AddDate(0, 0, 1)
+		nextDate := date
 		for {
-			if date.After(now) {
-				month := int(date.Month())
-				// Проверяем месяц, если указаны конкретные месяцы
+			nextDate = nextDate.AddDate(0, 0, 1)
+			if nextDate.After(now) {
+				month := int(nextDate.Month())
 				if len(allowedMonths) > 0 && !allowedMonths[month] {
-					// Переходим на первый день следующего месяца
-					date = date.AddDate(0, 1, -date.Day()+1)
+					nextDate = time.Date(nextDate.Year(), nextDate.Month()+1, 1, 0, 0, 0, 0, nextDate.Location())
 					continue
 				}
 
-				day := date.Day()
-				lastDay := date.AddDate(0, 1, -day).Day()
+				day := nextDate.Day()
+				lastDay := nextDate.AddDate(0, 1, -day).Day()
 
-				// Проверяем день
 				for allowedDay := range allowedDays {
 					targetDay := allowedDay
 					if allowedDay < 0 {
 						targetDay = lastDay + allowedDay + 1
 					}
 					if targetDay >= 1 && targetDay <= lastDay && day == targetDay {
-						return date.Format(dateFormat), nil
+						return nextDate.Format(dateFormat), nil
 					}
 				}
 			}
-			date = date.AddDate(0, 0, 1)
 		}
 
 	default:
