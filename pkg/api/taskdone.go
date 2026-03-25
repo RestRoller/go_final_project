@@ -25,6 +25,7 @@ func TaskDoneHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Если нет правила повторения - удаляем
 	if task.Repeat == "" {
 		err = db.DeleteTask(id)
 		if err != nil {
@@ -35,13 +36,21 @@ func TaskDoneHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
-	nextDate, err := NextDate(now, task.Date, task.Repeat)
+	// Получаем дату задачи
+	taskDate, err := time.Parse(dateFormat, task.Date)
+	if err != nil {
+		WriteError(w, "Неверный формат даты", http.StatusBadRequest)
+		return
+	}
+
+	// Вычисляем следующую дату от даты задачи (не от текущей!)
+	nextDate, err := NextDate(taskDate, task.Date, task.Repeat)
 	if err != nil {
 		WriteError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	// Обновляем дату
 	err = db.UpdateDate(id, nextDate)
 	if err != nil {
 		WriteError(w, err.Error(), http.StatusInternalServerError)
